@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+installer_output/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Data
+data/chromadb/
+data/novels/
+data/*.db
+data/chat_history/
+data/memory/
+data/projects/
+data/deliveries.json
+data/_legacy_*/
+data/_pre_migrate_backup/
+
+# Writing Space (user content, not in repo)
+写作空间/
+
+# Novel Outlines (user content)
+小说大纲/
+
+# History
+历史对话/
+
+# Skills cache
+skills/.cache/
+
+# Logs
+logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# pyenv
+.python-version
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# OMO / Plans
+.omo/
+.novel-workflow/
+
+# User content
+Prompt和skills库/
+data/
+
+# Dev docs (contain local paths, notes)
+docs/开发细节.md
+docs/发布MCP方案.md
+docs/feature_analysis.md
+docs/feature_completion.md
+docs/feature_completion_final.md
+docs/feature_completion_v2.md
+docs/handover.md
+docs/workflow_diagram.md
+
+# Screenshots (too large for repo)
+docs/images/*.png
+docs/images/*.jpg
+docs/images/*.jpeg
+
+# Articles (not in repo)
+docs/articles/
+
+# Embedded git repos (tools are submodules, not in main repo)
+tools/book-writer-mcp/
+tools/novel-writer-mcp/
+tools/webnovel-mcp/

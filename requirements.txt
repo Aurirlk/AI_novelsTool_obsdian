@@ -1,0 +1,34 @@
+# ============================================================
+# AI网文写作智能体 - 依赖列表
+# ============================================================
+# 安装命令: pip install -r requirements.txt
+
+# 核心框架
+langchain>=1.3.0
+langgraph>=1.2.0
+
+# LLM提供商
+openai>=2.40.0
+zhipuai>=2.1.0
+
+# 向量数据库
+chromadb>=1.5.0
+
+# 桌面GUI
+PyQt6>=6.5.0
+
+# 工具库
+python-dotenv>=1.2.0
+requests>=2.30.0
+beautifulsoup4>=4.12.0
+
+# 数据处理
+numpy>=1.24.0
+# pandas>=2.0.0  # 可选，需要C++编译器
+
+# 文档导出（Word）
+python-docx>=1.1.0
+
+# 可选依赖
+# scrapy>=2.10.0  # 爬虫框架
+# langsmith>=0.1.0  # LangSmith监控

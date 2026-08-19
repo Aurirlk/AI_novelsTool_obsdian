@@ -1,0 +1,8 @@
+"""
+Prompt模板模块
+提供对抗式审核的Prompt模板
+"""
+
+from .critic_prompts import OUTLINE_CRITIC_PROMPT, CHAPTER_CRITIC_PROMPT, KNOWLEDGE_CHECK_PROMPT
+
+__all__ = ['OUTLINE_CRITIC_PROMPT', 'CHAPTER_CRITIC_PROMPT', 'KNOWLEDGE_CHECK_PROMPT']

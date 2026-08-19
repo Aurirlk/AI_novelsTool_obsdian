@@ -1,0 +1,105 @@
+{
+  "servers": {
+    "novel-workflow": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@ttaqt/novel-workflow-mcp"
+      ],
+      "env": {},
+      "enabled": true,
+      "description": "中文网文工作流：故事概念→大纲→场景→正文，含审批仪表板"
+    },
+    "novel-writer": {
+      "command": "node",
+      "args": [
+        "tools/novel-writer-mcp/dist/index.js"
+      ],
+      "env": {
+        "MCP_ROOT": "tools/novel-writer-mcp",
+        "WRITING_ROOT": "data/novels"
+      },
+      "enabled": true,
+      "description": "网文结构引擎：场景checklist、伏笔台账、无限流/线性史诗双profile"
+    },
+    "book-writer": {
+      "command": "node",
+      "args": [
+        "tools/book-writer-mcp/dist/index.js"
+      ],
+      "env": {
+        "BOOK_PROJECT_DIR": "data/books"
+      },
+      "enabled": true,
+      "description": "全流程写书：故事圣经+风格指南+连续性检查+docx导出+封面规格"
+    },
+    "webnovel": {
+      "command": "D:/Anaconda/envs/xiaoshuobianjiqi/python.exe",
+      "args": [
+        "-m",
+        "webnovel_mcp.server"
+      ],
+      "env": {
+        "PYTHONPATH": "tools/webnovel-mcp/src",
+        "WEBNOVEL_PROJECT_DIR": "data/webnovel"
+      },
+      "enabled": true,
+      "description": "英文网文项目：仙侠/LitRPG/言情，角色/章节/世界观管理"
+    },
+    "creader": {
+      "command": "npx",
+      "args": [
+        "github:timothyshen/creader-mcp"
+      ],
+      "env": {
+        "CREADER_API_KEY": ""
+      },
+      "enabled": false,
+      "description": "Creader云端知识图谱（需在creader.io注册API密钥后启用）"
+    },
+    "scrivener": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "scrivener-mcp"
+      ],
+      "env": {},
+      "enabled": false,
+      "description": "Scrivener集成（需安装Scrivener软件后启用）"
+    },
+    "fetch": {
+      "command": "D:/Anaconda/envs/xiaoshuobianjiqi/python.exe",
+      "args": [
+        "-m",
+        "mcp_server_fetch"
+      ],
+      "env": {},
+      "enabled": true,
+      "description": "网页抓取：扫榜/素材搜集/参考资料读取"
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {
+        "MEMORY_FILE_PATH": "data/mcp_memory.json"
+      },
+      "enabled": true,
+      "description": "官方知识图谱记忆：跨会话记住人物/设定关系"
+    },
+    "tomato-publisher": {
+      "command": "node",
+      "args": [
+        "<绝对路径>/tomato-writer-mcp/dist/index.js"
+      ],
+      "env": {
+        "TOMATO_COOKIE": "",
+        "TOMATO_CSRF_TOKEN": ""
+      },
+      "enabled": false,
+      "description": "番茄作家后台：一键发布/定时发布章节、阅读数据（需填Cookie启用，见docs/发布MCP方案.md）"
+    }
+  }
+}
