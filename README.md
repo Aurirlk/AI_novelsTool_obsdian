@@ -6,7 +6,7 @@
 ![PyQt6](https://img.shields.io/badge/PyQt6-Desktop-Green?logo=qt&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-**一句话定位**：如果你用 Claude Code 写代码，那这个工具就是用来写小说的。
+**一句话定位**：如果你用 Claude Code 写代码，那这个工具就是用来写小说的。其实本质是obsdian上面加了一个AI管理，算是重复造轮子，如果给代码开发者其实是不如直接在obsdian+claude code+LLM wiki的，不够如果你不懂代码，这个轻量级的编辑器或许可以帮到你。
 
 ---
 
@@ -76,7 +76,7 @@ python src/run_complete.py
 
 ## 界面预览
 
-> 截图待补充（请运行应用后手动截图放入 docs/images/ 目录）
+>
 
 | 页面 | 说明 |
 |------|------|
