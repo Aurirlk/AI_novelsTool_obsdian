@@ -10,6 +10,44 @@
 
 ---
 
+## 界面预览
+
+### 首次启动引导
+
+![首次启动引导](docs/images/onboarding.png)
+
+### AI 对话助手
+
+![AI助手-空状态](docs/images/chat_empty.png)
+
+![AI助手-对话](docs/images/chat_conversation.png)
+
+### 书籍管理
+
+![书籍管理](docs/images/book_library.png)
+
+### 写作工作台
+
+![写作工作台](docs/images/writer_workspace.png)
+
+### 大纲编辑
+
+![大纲编辑](docs/images/outline_library.png)
+
+### 故事时间线
+
+![故事时间线](docs/images/story_timeline.png)
+
+### 拆书分析
+
+![拆书分析](docs/images/book_analysis.png)
+
+### 批评师
+
+![批评师](docs/images/critic_page.png)
+
+---
+
 ## 它能做什么？
 
 ### 核心功能
@@ -76,7 +114,7 @@ python src/run_complete.py
 
 ## 界面预览
 
->
+> 截图待补充（请运行应用后手动截图放入 docs/images/ 目录）
 
 | 页面 | 说明 |
 |------|------|
@@ -198,6 +236,15 @@ AI_novelsTool_obsdian/
 | 数据库 | SQLite | 设置/密钥/历史 |
 | 工具 | MCP 协议 | 扩展工具系统 |
 | 智能体 | LangGraph | 多智能体协作 |
+
+---
+
+## 文档
+
+- [API 接口文档](docs/api.md)
+- [技术文档](docs/technical.md)
+- [架构文档](docs/architecture.md)
+- [部署文档](docs/deployment.md)
 
 ---
 
