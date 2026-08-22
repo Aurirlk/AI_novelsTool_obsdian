@@ -87,7 +87,7 @@ Thumbs.db
 
 # User content
 Prompt和skills库/
-data/
+/data/
 
 # Dev docs (contain local paths, notes)
 docs/开发细节.md
