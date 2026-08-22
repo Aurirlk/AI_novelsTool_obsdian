@@ -98,14 +98,18 @@ class OutlineLibrary:
     # ==================== 分类管理（统一存储：分类 = meta.json 的 genre） ====================
 
     def create_category(self, name: str) -> tuple[bool, str]:
-        """新建题材分类（兼容旧接口：统一存储下分类由各书 meta.json 的 genre 决定，
-        此处仅校验分类名合法性，不创建实际目录）"""
+        """新建题材分类（创建隐藏占位目录以持久化分类）"""
         name = self._safe_name(name)
         if not name:
             return False, "分类名不能为空"
         if name in self.list_categories():
             return False, f"分类「{name}」已存在"
-        # 统一存储下不创建独立分类目录；分类随作品创建时写入 meta.json
+        # 创建隐藏占位目录，写入 meta.json 记录分类
+        placeholder_dir = os.path.join(self.library_dir, f".category_{name}")
+        os.makedirs(placeholder_dir, exist_ok=True)
+        import json
+        with open(os.path.join(placeholder_dir, "meta.json"), "w", encoding="utf-8") as f:
+            json.dump({"genre": name, "placeholder": True}, f, ensure_ascii=False, indent=2)
         self.refresh()
         return True, name
 

@@ -23,6 +23,7 @@ class HookPage(QWidget):
         self._current_id = None
         self._loading = False
         self._init_ui()
+        self._load_books()
         self._refresh_list()
     
     def _init_ui(self):
