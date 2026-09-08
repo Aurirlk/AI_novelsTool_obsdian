@@ -89,23 +89,7 @@ Thumbs.db
 Prompt和skills库/
 /data/
 
-# Dev docs (contain local paths, notes)
-docs/开发细节.md
-docs/发布MCP方案.md
-docs/feature_analysis.md
-docs/feature_completion.md
-docs/feature_completion_final.md
-docs/feature_completion_v2.md
-docs/handover.md
-docs/workflow_diagram.md
-
-# Screenshots (too large for repo)
-docs/images/*.png
-docs/images/*.jpg
-docs/images/*.jpeg
-
-# Articles (not in repo)
-docs/articles/
+# Docs - all public (docs/, docs/images/, docs/articles/)
 
 # Embedded git repos (tools are submodules, not in main repo)
 tools/book-writer-mcp/
