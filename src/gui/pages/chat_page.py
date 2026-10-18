@@ -115,8 +115,14 @@ class ChatWorker(QThread):
                         return mcp_handler(name, arguments_json)
                     return f"未知工具：{name}"
 
+                try:
+                    from src.data.settings_manager import get_settings_manager
+                    max_rounds = int(get_settings_manager().get_setting("general", "agent_max_rounds", 8))
+                except Exception:
+                    max_rounds = 8
                 text = client.chat_with_tools_stream(
                     messages, tools, combined_handler,
+                    max_rounds=max_rounds,
                     on_tool_event=lambda e: self.tool_event.emit(e))
                 for piece in text:
                     if self.isInterruptionRequested():

@@ -280,6 +280,14 @@ class LLMClient:
             最终文本回复的流式片段
         """
         messages = list(messages)
+        # —— Agent 护栏状态（参考 goink safety.go / interrupt.go）——
+        # 死循环：同一工具连续 N 次相同调用（名称+参数）即中断本轮
+        stuck_streak = 0
+        last_call_key = None
+        # 工具禁用：某工具连续失败 N 次后，本轮后续不再调用
+        max_tool_failures = 3
+        failures = {}          # tool_name -> 连续失败次数
+        disabled_tools = set() # 已禁用工具集合
 
         for _ in range(max_rounds):
             kwargs = {
@@ -334,12 +342,44 @@ class LLMClient:
                     "tool_calls": serialized,
                 })
                 for tc in serialized:
+                    name = tc["function"]["name"]
+                    args = tc["function"]["arguments"] or "{}"
                     if on_tool_event:
-                        on_tool_event(f"调用工具 {tc['function']['name']}")
+                        on_tool_event(f"调用工具 {name}")
+                    # 1) 死循环检测：相同工具+相同参数连续出现
+                    call_key = f"{name}|{args[:200]}"
+                    if call_key == last_call_key:
+                        stuck_streak += 1
+                    else:
+                        stuck_streak = 1
+                    last_call_key = call_key
+                    if stuck_streak >= 3:
+                        if on_tool_event:
+                            on_tool_event(f"⚠️ 检测到连续 {stuck_streak} 次相同调用（{name}），终止本轮避免死循环")
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": "检测到连续重复调用同一工具且参数相同，为避免死循环已终止本轮。请直接基于现有信息回答用户。",
+                        })
+                        continue
+                    # 2) 工具禁用：连续失败的工具不再调用
+                    if name in disabled_tools:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": f"工具 {name} 因连续失败已被禁用，请勿再调用，直接基于现有信息回答。",
+                        })
+                        continue
                     try:
-                        result = tool_handler(tc["function"]["name"], tc["function"]["arguments"] or "{}")
+                        result = tool_handler(name, args)
+                        failures[name] = 0
                     except Exception as e:
                         result = f"工具调用失败：{e}"
+                        failures[name] = failures.get(name, 0) + 1
+                        if failures[name] >= max_tool_failures:
+                            disabled_tools.add(name)
+                            if on_tool_event:
+                                on_tool_event(f"⚠️ 工具 {name} 连续失败 {failures[name]} 次，已禁用")
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
