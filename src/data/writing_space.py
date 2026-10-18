@@ -36,6 +36,8 @@ class WritingSpace:
             return tree
 
         for book in sorted(os.listdir(self.root)):
+            if book.startswith("."):
+                continue  # 隐藏目录（如旧版分类占位 .category_*）不视为书籍
             book_path = os.path.join(self.root, book)
             if os.path.isfile(book_path):
                 if book.endswith(".md"):
@@ -43,6 +45,8 @@ class WritingSpace:
                 continue
             book_node = {"name": book, "path": book_path, "type": "book", "children": []}
             for entry in sorted(os.listdir(book_path)):
+                if entry.startswith("."):
+                    continue
                 entry_path = os.path.join(book_path, entry)
                 if os.path.isdir(entry_path):
                     folder_node = {"name": entry, "path": entry_path, "type": "folder", "children": []}

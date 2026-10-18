@@ -10,12 +10,15 @@ read_work / create_work / rename_work / delete_work / library_dir / read_content
 import os
 import re
 import shutil
+import json
 from dataclasses import dataclass
 from typing import List, Optional
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 统一数据根 = 写作空间（兼容旧属性名 library_dir）
 DEFAULT_LIBRARY_DIR = os.path.join(_PROJECT_ROOT, "写作空间")
+# 分类注册表：独立于写作空间，避免占位目录混入书籍列表
+CATEGORY_REGISTRY = os.path.join(_PROJECT_ROOT, "data", "outline_categories.json")
 
 
 @dataclass
@@ -54,6 +57,7 @@ class OutlineLibrary:
 
     def refresh(self):
         """重新扫描写作空间书目录"""
+        self._cleanup_legacy_placeholders()
         self._works = []
         if not os.path.isdir(self.library_dir):
             return
@@ -83,8 +87,11 @@ class OutlineLibrary:
                 ))
 
     def list_categories(self) -> List[str]:
-        """所有题材分类（来自 meta.json genre）"""
-        return sorted({w.category for w in self._works})
+        """所有题材分类：注册表分类 + 各书 meta.json 的 genre（去重）"""
+        names = set(self._load_registry())
+        names.update(w.category for w in self._works)
+        names.discard("")
+        return sorted(names)
 
     def list_works(self, category: Optional[str] = None) -> List[OutlineWork]:
         """作品列表，可按分类过滤"""
@@ -95,31 +102,57 @@ class OutlineLibrary:
     def count(self) -> int:
         return len(self._works)
 
-    # ==================== 分类管理（统一存储：分类 = meta.json 的 genre） ====================
+    # ==================== 分类管理（独立注册表，不占用写作空间目录） ====================
+
+    @staticmethod
+    def _load_registry() -> List[str]:
+        """读取分类注册表"""
+        try:
+            with open(CATEGORY_REGISTRY, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return [str(x) for x in data.get("categories", []) if str(x).strip()]
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return []
+
+    @staticmethod
+    def _save_registry(names: List[str]) -> None:
+        """写回分类注册表"""
+        os.makedirs(os.path.dirname(CATEGORY_REGISTRY), exist_ok=True)
+        with open(CATEGORY_REGISTRY, "w", encoding="utf-8") as f:
+            json.dump({"categories": sorted(set(names))}, f, ensure_ascii=False, indent=2)
+
+    def _cleanup_legacy_placeholders(self) -> None:
+        """清理旧版创建的 .category_* 占位目录（此前会导致其混入书籍列表）"""
+        if not os.path.isdir(self.library_dir):
+            return
+        for entry in os.listdir(self.library_dir):
+            if entry.startswith(".category_"):
+                shutil.rmtree(os.path.join(self.library_dir, entry), ignore_errors=True)
 
     def create_category(self, name: str) -> tuple[bool, str]:
-        """新建题材分类（创建隐藏占位目录以持久化分类）"""
+        """新建题材分类（写入独立注册表）"""
         name = self._safe_name(name)
         if not name:
             return False, "分类名不能为空"
-        if name in self.list_categories():
+        names = set(self._load_registry())
+        names.update(w.category for w in self._works)
+        if name in names:
             return False, f"分类「{name}」已存在"
-        # 创建隐藏占位目录，写入 meta.json 记录分类
-        placeholder_dir = os.path.join(self.library_dir, f".category_{name}")
-        os.makedirs(placeholder_dir, exist_ok=True)
-        import json
-        with open(os.path.join(placeholder_dir, "meta.json"), "w", encoding="utf-8") as f:
-            json.dump({"genre": name, "placeholder": True}, f, ensure_ascii=False, indent=2)
-        self.refresh()
+        names.add(name)
+        self._save_registry(sorted(names))
         return True, name
 
     def delete_category(self, name: str) -> tuple[bool, str]:
-        """删除分类（兼容旧接口）：将属于该分类的作品 genre 改为「未分类」"""
-        works = self.list_works(name)
-        if not works:
-            return False, f"分类「{name}」不存在或没有作品"
-        import json
+        """删除分类：从注册表移除，并将属于该分类的作品 genre 改为「未分类」"""
+        names = set(self._load_registry())
+        works = [w for w in self._works if w.category == name]
+        if name not in names and not works:
+            return False, f"分类「{name}」不存在"
+        names.discard(name)
+        self._save_registry(sorted(names))
         for w in works:
+            if w.category != name:
+                continue
             meta_path = os.path.join(w.path, "meta.json")
             try:
                 with open(meta_path, "r", encoding="utf-8") as f:
