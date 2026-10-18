@@ -110,6 +110,15 @@ class ChatWorker(QThread):
 
                 def combined_handler(name: str, arguments_json: str) -> str:
                     if name in local_names:
+                        # goink：正文写入 >500 字时，前端立即提示已触发自检+审批
+                        if name == "write_chapter":
+                            try:
+                                _args = json.loads(arguments_json or "{}")
+                                if len(str(_args.get("content", "")).strip()) > 500:
+                                    self.tool_event.emit(
+                                        "正文写入 >500 字：已触发「自动质检 + Diff 审批」，请在对话结束后到顶部横幅批准")
+                            except Exception:
+                                pass
                         return project_handler(name, arguments_json)
                     if mcp_handler is not None:
                         return mcp_handler(name, arguments_json)
@@ -468,6 +477,185 @@ class ChatHistoryPanel(QFrame):
 
 # ==================== 聊天页 ====================
 
+class DiffApprovalDialog(QDialog):
+    """AI 变更审批对话框（goink 模式：Diff 预览 → 用户批准才落盘）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("AI 变更审批")
+        self.resize(860, 620)
+        self._changes = []
+        self._current_id = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
+
+        # 变更列表
+        self.list_widget = QListWidget()
+        self.list_widget.setFixedHeight(120)
+        self.list_widget.currentRowChanged.connect(self._on_select)
+        layout.addWidget(self.list_widget)
+
+        # Diff 对照区（左旧 / 右新）
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.old_view = QTextEdit()
+        self.old_view.setReadOnly(True)
+        self.old_view.setPlaceholderText("旧内容")
+        self.new_view = QTextEdit()
+        self.new_view.setReadOnly(True)
+        self.new_view.setPlaceholderText("新内容（待批准）")
+        splitter.addWidget(self._panel("原内容", self.old_view))
+        splitter.addWidget(self._panel("新内容", self.new_view))
+        layout.addWidget(splitter, 1)
+
+        # 底部按钮
+        btn_row = QHBoxLayout()
+        self.approve_btn = QPushButton("批准当前")
+        self.approve_btn.setObjectName("btn_primary")
+        self.approve_btn.clicked.connect(self._approve_current)
+        btn_row.addWidget(self.approve_btn)
+        self.reject_btn = QPushButton("拒绝当前")
+        self.reject_btn.clicked.connect(self._reject_current)
+        btn_row.addWidget(self.reject_btn)
+        self.approve_all_btn = QPushButton("全部批准")
+        self.approve_all_btn.clicked.connect(self._approve_all)
+        btn_row.addWidget(self.approve_all_btn)
+        btn_row.addStretch()
+        self.history_btn = QPushButton("提交历史")
+        self.history_btn.clicked.connect(self._show_history)
+        btn_row.addWidget(self.history_btn)
+        layout.addLayout(btn_row)
+
+        self._reload()
+
+    @staticmethod
+    def _panel(title: str, view: QTextEdit) -> QWidget:
+        box = QWidget()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 0, 0, 0)
+        label = QLabel(title)
+        label.setObjectName("section_hint")
+        v.addWidget(label)
+        v.addWidget(view, 1)
+        return box
+
+    # ---------- 数据 ----------
+
+    def _reload(self):
+        from src.data.diff_approval import list_pending
+        previous_id = self._current_id
+        self._changes = list_pending()
+        self.list_widget.clear()
+        for c in self._changes:
+            size = len(c.get("new_content", ""))
+            item = QListWidgetItem(
+                f"{c['book_name']} · {c['chapter_title']}（{size} 字）")
+            item.setData(Qt.ItemDataRole.UserRole, c["id"])
+            self.list_widget.addItem(item)
+        if self._changes:
+            idx = 0
+            if previous_id:
+                for i, c in enumerate(self._changes):
+                    if c["id"] == previous_id:
+                        idx = i
+                        break
+            self.list_widget.setCurrentRow(idx)
+        else:
+            self.old_view.clear()
+            self.new_view.clear()
+            self._set_buttons(False)
+
+    def _set_buttons(self, enabled: bool):
+        for b in (self.approve_btn, self.reject_btn, self.approve_all_btn):
+            b.setEnabled(enabled)
+
+    def _current(self):
+        row = self.list_widget.currentRow()
+        if 0 <= row < len(self._changes):
+            return self._changes[row]
+        return None
+
+    def _on_select(self, _row: int):
+        c = self._current()
+        if not c:
+            return
+        self._current_id = c["id"]
+        old = c.get("old_content", "")
+        self.old_view.setPlainText(old if old else "（无旧内容，本次为新章节）")
+        self.new_view.setPlainText(c.get("new_content", ""))
+        self._set_buttons(True)
+
+    # ---------- 操作 ----------
+
+    def _approve_current(self):
+        c = self._current()
+        if not c:
+            return
+        from src.data import diff_approval
+        result = diff_approval.approve(c["id"])
+        if result and "error" in result:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "审批失败", result["error"])
+            return
+        self._reload()
+
+    def _reject_current(self):
+        c = self._current()
+        if not c:
+            return
+        from src.data import diff_approval
+        diff_approval.reject(c["id"])
+        self._reload()
+
+    def _approve_all(self):
+        from src.data import diff_approval
+        ok_count, errors = diff_approval.approve_all()
+        if ok_count:
+            self._reload()
+        if errors:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "部分审批失败", "\n".join(errors[:5]))
+
+    def _show_history(self):
+        dlg = CommitHistoryDialog(self)
+        dlg.exec()
+
+
+class CommitHistoryDialog(QDialog):
+    """每轮 Git 自动提交历史（turn_commits）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("自动提交历史（turn_commits）")
+        self.resize(640, 460)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+
+        self.list_widget = QListWidget()
+        layout.addWidget(self.list_widget)
+
+        hint = QLabel("每轮 AI / 用户变更会自动 git commit，hash 记录于此。"
+                      "正文等用户内容不入仓库，提交的是变更日志。")
+        hint.setWordWrap(True)
+        hint.setObjectName("section_hint")
+        layout.addWidget(hint)
+
+        from src.utils.git_commits import load_turn_commits
+        records = load_turn_commits()
+        if not records:
+            self.list_widget.addItem("（暂无提交记录）")
+        for r in reversed(records):
+            kind = "AI" if r.get("kind") == "ai" else "用户"
+            head = f"[{r.get('time', '')}] {kind} · {r.get('message', '')}"
+            if r.get("hash"):
+                head += f"\n    commit {r['hash']}"
+            else:
+                head += "\n    （未进入 git：当前目录不是仓库）"
+            item = QListWidgetItem(head)
+            self.list_widget.addItem(item)
+
+
 class ChatPage(QWidget):
     """AI助手对话页面（WorkBuddy风格）"""
 
@@ -572,6 +760,32 @@ class ChatPage(QWidget):
         self._refresh_books()
 
         layout.addLayout(header)
+
+        # ==================== AI 变更审批横幅（goink diff-approval） ====================
+        self.pending_banner = QFrame()
+        self.pending_banner.setObjectName("pending_banner")
+        self.pending_banner.setStyleSheet(
+            "QFrame#pending_banner { background:#1e2a3a; border:1px solid #3d5a80;"
+            " border-radius:8px; padding:6px 10px; }"
+            "QFrame#pending_banner QLabel { color:#e8eef7; background:transparent; }"
+            "QPushButton { padding:5px 12px; border-radius:6px; }")
+        banner_layout = QHBoxLayout(self.pending_banner)
+        banner_layout.setContentsMargins(8, 4, 8, 4)
+        self.pending_label = QLabel("")
+        banner_layout.addWidget(self.pending_label)
+        banner_layout.addStretch()
+        self.approve_btn = QPushButton("变更审批")
+        self.approve_btn.setObjectName("btn_secondary")
+        self.approve_btn.setFixedHeight(30)
+        self.approve_btn.clicked.connect(self._open_diff_approval)
+        banner_layout.addWidget(self.approve_btn)
+        self.commits_btn = QPushButton("提交历史")
+        self.commits_btn.setObjectName("btn_secondary")
+        self.commits_btn.setFixedHeight(30)
+        self.commits_btn.clicked.connect(self._show_commit_history)
+        banner_layout.addWidget(self.commits_btn)
+        self.pending_banner.hide()
+        layout.addWidget(self.pending_banner)
 
         # ==================== 消息滚动区（有对话时显示） ====================
         self.scroll = QScrollArea()
@@ -812,6 +1026,9 @@ class ChatPage(QWidget):
 
     def _update_context_bar(self):
         """按当前书籍重建快照并刷新上下文条显示"""
+        # 初始化早期 _refresh_books 就会触发此方法，此时 context_bar 尚未创建
+        if not hasattr(self, "context_book"):
+            return
         self._context_snapshot = ""
         book = getattr(self, "_selected_book", "")
         if not book:
@@ -1473,6 +1690,29 @@ class ChatPage(QWidget):
         self.input.setFocus()
         self._update_context_bar()  # AI 可能写入了章节/角色，刷新快照统计
         self._save_current_session()
+        self._refresh_pending_banner()
+
+    def _refresh_pending_banner(self):
+        """对话结束后刷新"待审批 AI 变更"横幅"""
+        try:
+            from src.data.diff_approval import count_pending
+            n = count_pending()
+        except Exception:
+            n = 0
+        if n > 0:
+            self.pending_label.setText(f"有 {n} 项 AI 正文变更待审批")
+            self.pending_banner.show()
+        else:
+            self.pending_banner.hide()
+
+    def _open_diff_approval(self):
+        dlg = DiffApprovalDialog(self)
+        dlg.exec()
+        self._refresh_pending_banner()
+
+    def _show_commit_history(self):
+        dlg = CommitHistoryDialog(self)
+        dlg.exec()
 
     def _new_chat_guard(self):
         """新建对话前检查历史会话数上限（超过则禁止新建，引导删除）"""

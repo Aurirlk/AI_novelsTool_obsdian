@@ -929,7 +929,10 @@ class WriterPage(QWidget):
         # 已打开章节文件时直接写回
         if self.current_file:
             from src.data.writing_space import get_writing_space
-            get_writing_space().save(self.current_file, content)
+            ws = get_writing_space()
+            old = ws.read(self.current_file)
+            ws.save(self.current_file, content)
+            self._git_log_user_save(self.current_file, changed=(old != content))
             self._opened_mtime = self._file_mtime(self.current_file)
             self._trigger_memory_extract()
             QMessageBox.information(self, "已保存", f"已写回：\n{self.current_file}")
@@ -949,7 +952,20 @@ class WriterPage(QWidget):
                     self.current_file = node["path"]
                     self._refresh_tree()
                     self._trigger_memory_extract()
+                    self._git_log_user_save(node["path"])
                     QMessageBox.information(self, "已保存", f"已保存到：\n{node['path']}")
+
+    @staticmethod
+    def _git_log_user_save(path: str, changed: bool = True):
+        """用户手动保存正文 → 记录 turn_commits（正文不入仓库，提交变更日志）。
+        内容未变化时跳过，避免空提交噪音。"""
+        if not changed:
+            return
+        try:
+            from src.utils.git_commits import record_and_commit
+            record_and_commit("user", f"用户保存：{os.path.basename(path)}（写作页）")
+        except Exception:
+            pass
 
     # ==================== 记忆自动更新 ====================
 

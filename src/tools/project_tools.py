@@ -136,7 +136,10 @@ def _save_outline(title: str, content: str, category: str = "玄幻") -> dict:
             if w.outline_file:
                 with open(w.outline_file, "w", encoding="utf-8") as f:
                     f.write(content)
-            return {"ok": True, "message": f"大纲《{title}》已更新", "path": w.outline_file}
+            from src.utils.git_commits import record_and_commit
+            entry = record_and_commit("ai", f"AI 保存大纲：{title}")
+            return {"ok": True, "message": f"大纲《{title}》已更新", "path": w.outline_file,
+                    "commit": entry.get("hash", "")}
 
     # 不存在则新建（写作空间建书目录）
     ok, msg = lib.create_work(category, title)
@@ -147,7 +150,10 @@ def _save_outline(title: str, content: str, category: str = "玄幻") -> dict:
         if w.title == title:
             with open(w.outline_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            return {"ok": True, "message": f"大纲《{title}》已新建（分类「{category}」）", "path": w.outline_file}
+            from src.utils.git_commits import record_and_commit
+            entry = record_and_commit("ai", f"AI 新建大纲：{title}（{category}）")
+            return {"ok": True, "message": f"大纲《{title}》已新建（分类「{category}」）",
+                    "path": w.outline_file, "commit": entry.get("hash", "")}
     return {"ok": False, "message": "保存失败：未找到新建作品"}
 
 
@@ -242,9 +248,31 @@ def _write_chapter(book_name: str, chapter_title: str, content: str) -> dict:
     # save 使用相对当前目录的路径，必须拼上写作空间根目录
     safe_title = "".join(c for c in chapter_title if c not in r'\/:*?"<>|') or "未命名章节"
     path = os.path.join(ws.root, book_name, f"{safe_title}.md")
+
+    # goink 模式：正文写入 >500 字 → 暂存 Diff 待审批 + 触发自检子 Agent（不直接落盘）
+    if len(content.strip()) > 500:
+        from src.data.diff_approval import stage_change
+        change = stage_change(book_name, chapter_title, path, content)
+        from src.agents.self_check_agent import run_self_check
+        report = run_self_check(book_name, chapter_title, content)
+        return {
+            "ok": True,
+            "status": "awaiting_approval",
+            "pending_id": change.get("id", ""),
+            "message": f"章节已暂存待审批（{book_name}/{safe_title}），"
+                       f"请在「变更审批」面板确认 Diff 后批准落盘。",
+            "path": path,
+            "quality_report": report,
+        }
+
+    # 小改动（≤500字）直接落盘，并记录 turn_commits
     try:
         ws.save(path, content)
-        return {"ok": True, "message": f"章节已保存到写作空间：{book_name}/{safe_title}.md", "path": path}
+        from src.utils.git_commits import record_and_commit
+        entry = record_and_commit("ai", f"AI 写入（小改动）：{book_name}/{safe_title}")
+        return {"ok": True,
+                "message": f"章节已保存到写作空间：{book_name}/{safe_title}.md",
+                "path": path, "commit": entry.get("hash", "")}
     except Exception as e:
         return {"ok": False, "message": f"保存失败：{e}"}
 
