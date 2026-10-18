@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit,
     QScrollArea, QFrame, QSizePolicy, QPushButton,
     QMenu, QListWidget, QListWidgetItem, QLineEdit, QFileDialog,
-    QSplitter, QMessageBox, QComboBox
+    QSplitter, QMessageBox, QComboBox, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QSize
 
@@ -593,6 +593,10 @@ class ChatPage(QWidget):
         self.chips_row.addStretch()
         block_layout.addLayout(self.chips_row)
 
+        # 上下文条：显示当前书籍的状态快照（deepseekharness ui-goal 模式）
+        self.context_bar = self._create_context_bar()
+        block_layout.addWidget(self.context_bar)
+
         self.input_area = self._create_input_area()
         block_layout.addWidget(self.input_area)
 
@@ -768,10 +772,82 @@ class ChatPage(QWidget):
             self.book_combo.setCurrentIndex(idx)
         self.book_combo.blockSignals(False)
         self._selected_book = self.book_combo.currentText() if self.book_combo.currentIndex() > 0 else ""
+        self._update_context_bar()
 
     def _on_book_changed(self, text):
         """书籍选择变更"""
         self._selected_book = text if text != "（不指定书籍）" else ""
+        self._update_context_bar()
+
+    def _create_context_bar(self) -> QWidget:
+        """输入区上方的上下文条：展示当前书籍状态快照的可见入口"""
+        bar = QFrame()
+        bar.setObjectName("context_bar")
+        bar.setFixedHeight(34)
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(12, 0, 12, 0)
+        h.setSpacing(8)
+        label = QLabel("书籍：")
+        label.setObjectName("chat_hint")
+        self.context_book = QLabel("（未指定书籍）")
+        self.context_book.setObjectName("context_book")
+        self.context_stats = QLabel("未注入状态快照")
+        self.context_stats.setObjectName("context_stats")
+        preview_btn = QPushButton("预览快照")
+        preview_btn.setObjectName("btn_ghost")
+        preview_btn.setFixedHeight(24)
+        preview_btn.clicked.connect(self._preview_snapshot)
+        h.addWidget(label)
+        h.addWidget(self.context_book)
+        h.addWidget(self.context_stats)
+        h.addStretch()
+        h.addWidget(preview_btn)
+        return bar
+
+    def _update_context_bar(self):
+        """按当前书籍重建快照并刷新上下文条显示"""
+        self._context_snapshot = ""
+        book = getattr(self, "_selected_book", "")
+        if not book:
+            self.context_book.setText("（未指定书籍）")
+            self.context_stats.setText("未注入状态快照")
+            return
+        self.context_book.setText(book)
+        try:
+            from src.data.state_snapshot import build_state_snapshot
+            snap = build_state_snapshot(book)
+        except Exception:
+            snap = ""
+        self._context_snapshot = snap or ""
+        if self._context_snapshot:
+            import re
+            chars = len(self._context_snapshot)
+            n = len(re.findall(r"^## ", self._context_snapshot, re.M))
+            self.context_stats.setText(f"快照 {chars/1000:.1f}K · {n} 项 · 每轮对话自动注入")
+        else:
+            self.context_stats.setText("该书籍暂无内容可注入")
+
+    def _preview_snapshot(self):
+        """弹出快照全文预览对话框"""
+        text = getattr(self, "_context_snapshot", "")
+        if not text:
+            QMessageBox.information(self, "状态快照", "当前未生成快照：未选择书籍或该书籍暂无内容。")
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("书籍状态快照预览")
+        dlg.resize(680, 540)
+        lay = QVBoxLayout(dlg)
+        hint = QLabel("以下内容会在每次发送消息时注入 AI 的 system prompt：")
+        hint.setObjectName("chat_hint")
+        view = QTextBrowser()
+        view.setPlainText(text)
+        lay.addWidget(hint)
+        lay.addWidget(view)
+        close_btn = QPushButton("关闭")
+        close_btn.setObjectName("btn_secondary")
+        close_btn.clicked.connect(dlg.accept)
+        lay.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignRight)
+        dlg.exec()
 
     def _build_book_context(self) -> str:
         """构建选中书籍的状态快照（元数据/大纲/进度/角色/悬念/时间线），注入 system prompt"""
@@ -1389,7 +1465,7 @@ class ChatPage(QWidget):
         self.send_btn.setEnabled(True)
         self.input.setEnabled(True)
         self.input.setFocus()
-        self._save_current_session()
+        self._update_context_bar()  # AI 可能写入了章节/角色，刷新快照统计
         self._save_current_session()
 
     def _new_chat_guard(self):

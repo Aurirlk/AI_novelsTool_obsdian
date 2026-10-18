@@ -436,6 +436,32 @@ class ProfessionalTheme:
             color: {t['text_muted']};
             font-size: {t['font_size_sm']};
         }}
+        #context_bar {{
+            background-color: {t['bg_input']};
+            border: 1px solid {t['border']};
+            border-radius: {t['radius_md']};
+        }}
+        #context_book {{
+            color: {t['accent']};
+            font-weight: 600;
+            font-size: {t['font_size_sm']};
+        }}
+        #context_stats {{
+            color: {t['text_muted']};
+            font-size: {t['font_size_sm']};
+        }}
+        #btn_ghost {{
+            background-color: transparent;
+            border: 1px solid {t['border']};
+            border-radius: {t['radius_md']};
+            padding: 2px {t['spacing_md']};
+            color: {t['text_secondary']};
+            font-size: {t['font_size_sm']};
+        }}
+        #btn_ghost:hover {{
+            border-color: {t['border_focus']};
+            color: {t['accent']};
+        }}
 
         QComboBox {{
             background-color: {t['bg_input']};
