@@ -774,61 +774,15 @@ class ChatPage(QWidget):
         self._selected_book = text if text != "（不指定书籍）" else ""
 
     def _build_book_context(self) -> str:
-        """构建选中书籍的上下文（注入 system prompt）"""
+        """构建选中书籍的状态快照（元数据/大纲/进度/角色/悬念/时间线），注入 system prompt"""
         book = getattr(self, "_selected_book", "")
         if not book:
             return ""
-        parts = [f"\n# 当前讨论书籍：《{book}》\n"]
-        try:
-            from src.data.writing_space import get_writing_space
-            ws = get_writing_space()
-            tree = ws.list_tree()
-            for node in tree:
-                if node.get("type") != "book" or node["name"] != book:
-                    continue
-                # 章节列表
-                chapters = []
-                for child in node.get("children", []):
-                    if child.get("type") == "chapter":
-                        chapters.append(child["name"])
-                    elif child.get("type") == "folder":
-                        for sub in child.get("children", []):
-                            if sub.get("type") == "chapter":
-                                chapters.append(sub["name"])
-                if chapters:
-                    parts.append(f"章节目录：{', '.join(chapters[:30])}")
-                    # 最近一章预览
-                    last_ch = None
-                    for child in reversed(node.get("children", [])):
-                        if child.get("type") == "chapter":
-                            last_ch = child
-                            break
-                        elif child.get("type") == "folder":
-                            for sub in reversed(child.get("children", [])):
-                                if sub.get("type") == "chapter":
-                                    last_ch = sub
-                                    break
-                    if last_ch:
-                        content = ws.read(last_ch["path"])
-                        parts.append(f"最近章节《{last_ch['name']}》前200字：{content[:200]}")
-                break
-        except Exception:
-            pass
-        # 角色摘要
-        try:
-            from src.data.character_store import CharacterStore
-            chars = CharacterStore(book=book).load_all()
-            if chars:
-                char_lines = []
-                for c in chars[:10]:
-                    name = c.get("name", "?")
-                    role = c.get("role_type", "")
-                    personality = c.get("personality", "")[:20]
-                    char_lines.append(f"  - {name}（{role}，{personality}）")
-                parts.append("角色：\n" + "\n".join(char_lines))
-        except Exception:
-            pass
-        return "\n".join(parts)
+        from src.data.state_snapshot import build_state_snapshot
+        snapshot = build_state_snapshot(book)
+        if not snapshot:
+            return ""
+        return f"# 当前讨论书籍：《{book}》状态快照\n<novel_state>\n{snapshot}\n</novel_state>"
 
     def retranslate(self):
         """语言切换后刷新界面文字"""
