@@ -308,6 +308,9 @@ class WriterPage(QWidget):
 
         self.word_count_label = QLabel("字数: 0")
         self.word_count_label.setObjectName("chat_hint")
+        self.word_count_label.setStyleSheet(
+            "color:#10b981; font-weight:600; padding:2px 10px; border:1px solid #2b2b33;"
+            " border-radius:12px; background:#1d1d23;")
         tb.addWidget(self.word_count_label)
 
         layout.addWidget(toolbar)
@@ -1124,4 +1127,8 @@ class WriterPage(QWidget):
             QApplication.clipboard().setText(text)
 
     def _update_word_count(self):
-        self.word_count_label.setText(f"字数: {len(self.editor.toPlainText())}")
+        n = len(self.editor.toPlainText())
+        # 阅读时长估测：中文约 300 字/分钟
+        minutes = max(1, round(n / 300))
+        eta = f"约{minutes}分钟" if minutes < 60 else f"{minutes // 60}小时{minutes % 60}分"
+        self.word_count_label.setText(f"{n} 字 · {eta}")

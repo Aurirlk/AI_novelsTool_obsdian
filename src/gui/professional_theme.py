@@ -8,35 +8,41 @@ class ProfessionalTheme:
     """ChatGPT风格主题"""
 
     DARK = {
-        "bg_primary": "#212121",
-        "bg_secondary": "#171717",
-        "bg_tertiary": "#2f2f2f",
-        "bg_card": "#2a2a2a",
-        "bg_hover": "#2f2f2f",
-        "bg_active": "#3d3d3d",
-        "bg_input": "#2f2f2f",
+        "bg_primary": "#1d1d23",
+        "bg_secondary": "#17171c",
+        "bg_tertiary": "#2b2b33",
+        "bg_card": "#232329",
+        "bg_hover": "#2b2b33",
+        "bg_active": "#35353f",
+        "bg_input": "#26262e",
 
-        "text_primary": "#ececec",
-        "text_secondary": "#b4b4b4",
-        "text_muted": "#8e8e8e",
+        "text_primary": "#ececf1",
+        "text_secondary": "#b4b4c2",
+        "text_muted": "#8e8e9c",
         "text_inverse": "#ffffff",
 
-        "accent": "#10a37f",
-        "accent_hover": "#1ab58a",
-        "accent_active": "#0d8a6c",
-        "accent_light": "#1a3c34",
+        "accent": "#10b981",
+        "accent_hover": "#22c98f",
+        "accent_active": "#0e9c6d",
+        "accent_light": "#15453a",
+        "accent_gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+                           " stop:0 #0ea5e9, stop:1 #10b981)",
 
-        "success": "#10a37f",
+        "warm": "#f59e0b",
+        "violet": "#8b5cf6",
+        "rose": "#f43f5e",
+
+        "success": "#10b981",
         "warning": "#f7b500",
         "danger": "#ef4146",
         "info": "#3e9fe0",
 
-        "border": "#3a3a3a",
-        "border_light": "#4a4a4a",
-        "border_focus": "#10a37f",
+        "border": "#3a3a44",
+        "border_light": "#4a4a55",
+        "border_focus": "#0ea5e9",
 
         "shadow": "0 2px 8px rgba(0, 0, 0, 0.25)",
-        "shadow_lg": "0 4px 16px rgba(0, 0, 0, 0.35)",
+        "shadow_lg": "0 6px 20px rgba(0, 0, 0, 0.4)",
 
         "radius_sm": "6px",
         "radius_md": "10px",
@@ -81,6 +87,12 @@ class ProfessionalTheme:
         "accent_hover": "#0d8a6c",
         "accent_active": "#0b7559",
         "accent_light": "#d9f0e9",
+        "accent_gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+                           " stop:0 #0ea5e9, stop:1 #10a37f)",
+
+        "warm": "#d97706",
+        "violet": "#7c3aed",
+        "rose": "#e11d48",
 
         "success": "#10a37f",
         "warning": "#f7b500",
@@ -183,8 +195,8 @@ class ProfessionalTheme:
 
         #nav_item_active {{
             background-color: {t['bg_tertiary']};
-            border: none;
-            border-radius: {t['radius_md']};
+            border-left: 3px solid {t['accent']};
+            border-radius: 0 {t['radius_md']} {t['radius_md']} 0;
             padding: {t['spacing_sm']} {t['spacing_md']};
             text-align: left;
             color: {t['text_primary']};
@@ -242,6 +254,19 @@ class ProfessionalTheme:
         }}
         #card:hover {{
             border-color: {t['border_light']};
+            background-color: {t['bg_hover']};
+        }}
+
+        /* 首页功能卡片 */
+        #feature_card {{
+            background-color: {t['bg_card']};
+            border: 1px solid {t['border']};
+            border-radius: {t['radius_lg']};
+            padding: {t['spacing_lg']};
+        }}
+        #feature_card:hover {{
+            border-color: {t['accent']};
+            background-color: {t['bg_hover']};
         }}
 
         /* AI助手历史面板 */
@@ -308,7 +333,7 @@ class ProfessionalTheme:
         }}
 
         #btn_primary {{
-            background-color: {t['accent']};
+            background: {t['accent_gradient']};
             color: {t['text_inverse']};
             border: none;
             border-radius: {t['radius_md']};
@@ -317,7 +342,7 @@ class ProfessionalTheme:
             font-size: {t['font_size_md']};
         }}
         #btn_primary:hover {{
-            background-color: {t['accent_hover']};
+            background: {t['accent_gradient']};
         }}
         #btn_primary:pressed {{
             background-color: {t['accent_active']};
@@ -389,6 +414,7 @@ class ProfessionalTheme:
         #bubble_ai {{
             background-color: {t['bg_tertiary']};
             color: {t['text_primary']};
+            border: 1px solid {t['border']};
             border-radius: 18px;
             padding: 12px 16px;
             font-size: {t['font_size_md']};
@@ -397,6 +423,22 @@ class ProfessionalTheme:
             background-color: transparent;
             color: {t['text_muted']};
             font-size: {t['font_size_sm']};
+        }}
+        /* 消息头像（用户/AI 首字徽标） */
+        #avatar_user {{
+            background: {t['accent_gradient']};
+            color: #ffffff;
+            border-radius: 18px;
+            font-weight: bold;
+            font-size: {t['font_size_md']};
+        }}
+        #avatar_ai {{
+            background: {t['bg_active']};
+            color: {t['accent']};
+            border: 1px solid {t['border_focus']};
+            border-radius: 18px;
+            font-weight: bold;
+            font-size: {t['font_size_md']};
         }}
         #chat_input_area {{
             background-color: {t['bg_input']};
@@ -414,7 +456,7 @@ class ProfessionalTheme:
             padding: 10px 14px;
         }}
         #btn_send {{
-            background-color: {t['accent']};
+            background: {t['accent_gradient']};
             color: {t['text_inverse']};
             border: none;
             border-radius: 16px;

@@ -50,6 +50,7 @@ class ChatWorker(QThread):
     chunk = pyqtSignal(str)
     failed = pyqtSignal(str)
     tool_event = pyqtSignal(str)
+    started = pyqtSignal()  # 流式开始：用于显示打字指示
 
     def __init__(self, provider, model, messages, system_prompt="",
                  connectors=None, tool_groups=None, parent=None):
@@ -129,6 +130,7 @@ class ChatWorker(QThread):
                     max_rounds = int(get_settings_manager().get_setting("general", "agent_max_rounds", 8))
                 except Exception:
                     max_rounds = 8
+                self.started.emit()
                 text = client.chat_with_tools_stream(
                     messages, tools, combined_handler,
                     max_rounds=max_rounds,
@@ -218,14 +220,26 @@ class MessageRow(QFrame):
         else:
             self.bubble.setObjectName("bubble_user" if role == "user" else "bubble_ai")
 
+        # 头像（首字徽标）：user 右侧渐变圆，AI 左侧描边圆 —— 让对话更有温度
+        self._avatar = None
+        if role in ("user", "assistant"):
+            self._avatar = QLabel("我" if role == "user" else "AI")
+            self._avatar.setFixedSize(34, 34)
+            self._avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._avatar.setObjectName("avatar_user" if role == "user" else "avatar_ai")
+
         if role == "user":
             layout.addStretch()
             layout.addWidget(self.bubble)
+            if self._avatar:
+                layout.addWidget(self._avatar, 0, Qt.AlignmentFlag.AlignTop)
         elif role == "system":
             layout.addStretch()
             layout.addWidget(self.bubble)
             layout.addStretch()
         else:
+            if self._avatar:
+                layout.addWidget(self._avatar, 0, Qt.AlignmentFlag.AlignTop)
             layout.addWidget(self.bubble)
             layout.addStretch()
 
@@ -269,6 +283,40 @@ class MessageRow(QFrame):
 
     def text(self) -> str:
         return self._markdown_text
+
+    # ---------- 打字指示器：流式生成时显示动态 "● ● ●" ----------
+
+    def show_typing(self):
+        """在 AI 气泡顶部显示动态打字指示"""
+        if self.role != "assistant":
+            return
+        if getattr(self, "_typing_label", None) is None:
+            from PyQt6.QtCore import QTimer
+            from PyQt6.QtWidgets import QLabel
+            self._typing_dots = 0
+            self._typing_label = QLabel("AI 正在书写")
+            self._typing_label.setObjectName("chat_hint")
+            self._typing_label.setStyleSheet("color:#8e8e9c; font-size:11px; background:transparent;")
+            # 插入到气泡正上方
+            li = self.layout()
+            li.insertWidget(li.indexOf(self.bubble), self._typing_label)
+            # 动画：循环点亮三个点
+            self._typing_timer = QTimer(self)
+            self._typing_timer.timeout.connect(self._tick_typing)
+            self._typing_timer.start(320)
+        self._typing_label.show()
+
+    def _tick_typing(self):
+        self._typing_dots = (self._typing_dots + 1) % 4
+        self._typing_label.setText("AI 正在书写" + "●" * self._typing_dots)
+
+    def hide_typing(self):
+        tl = getattr(self, "_typing_label", None)
+        tm = getattr(self, "_typing_timer", None)
+        if tm:
+            tm.stop()
+        if tl:
+            tl.hide()
 
 
 # ==================== 选择面板 ====================
@@ -1662,6 +1710,7 @@ class ChatPage(QWidget):
         self._worker.chunk.connect(self._on_chunk)
         self._worker.failed.connect(self._on_failed)
         self._worker.tool_event.connect(self._add_system_note)
+        self._worker.started.connect(self._on_stream_started)
         self._worker.finished.connect(self._on_finished)
         self._worker.start()
 
@@ -1676,10 +1725,17 @@ class ChatPage(QWidget):
 
     def _on_failed(self, error: str):
         if self._current_ai_row is not None:
+            self._current_ai_row.hide_typing()
             self._current_ai_row.set_text(f"调用失败：{error}")
+
+    def _on_stream_started(self):
+        """流式开始：显示 AI 打字指示"""
+        if self._current_ai_row is not None:
+            self._current_ai_row.show_typing()
 
     def _on_finished(self):
         if self._current_ai_row is not None:
+            self._current_ai_row.hide_typing()
             text = self._current_ai_row.text()
             if text and not text.startswith("调用失败") and text != "…":
                 self.messages.append({"role": "assistant", "content": text})
