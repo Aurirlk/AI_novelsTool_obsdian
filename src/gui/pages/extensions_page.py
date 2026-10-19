@@ -99,7 +99,12 @@ class ExtensionsPage(QWidget):
         self.skill_list.blockSignals(True)
         self.skill_list.clear()
         for skill in sm.list_skills():
-            item = QListWidgetItem(f"{skill.name}")
+            label = skill.name
+            if skill.version:
+                label += f"  v{skill.version}"
+            if skill.priority:
+                label += f"  ⭐P{skill.priority}"
+            item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, skill)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if sm.is_enabled(skill.name) else Qt.CheckState.Unchecked)
@@ -113,7 +118,10 @@ class ExtensionsPage(QWidget):
         skill = current.data(Qt.ItemDataRole.UserRole)
         self.skill_name_label.setText(skill.name)
         triggers = "、".join(skill.triggers[:10])
-        self.skill_trigger_label.setText(f"触发词：{triggers}")
+        meta = f"版本: {skill.version or '—'}"
+        if skill.priority:
+            meta += f"  ·  优先级: {skill.priority}"
+        self.skill_trigger_label.setText(f"触发词：{triggers}  ·  触发词优先：同名多技能同分时按优先级决断 ·  {meta}")
         self.skill_detail.setPlainText(f"# {skill.name}\n\n{skill.description}\n\n---\n\n{skill.content[:4000]}")
 
     def _on_skill_check_changed(self, item):

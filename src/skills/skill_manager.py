@@ -59,14 +59,22 @@ class SkillManager:
         return [s for s in self._skills if self.is_enabled(s.name)]
 
     def match(self, text: str) -> Optional[Skill]:
-        """根据触发词匹配一个已启用的技能（按匹配分排序，同分取更专精的）"""
+        """根据触发词匹配一个已启用的技能。
+
+        决断优先级：匹配分最高者胜；同分时 frontmatter `priority` 高者胜；
+        再同分取更专精的（关键词更少）。
+        """
         best_skill, best_score = None, 0
         for skill in self.list_enabled():
             score = skill.match_score(text)
-            if score > best_score or (
-                    score == best_score and best_skill is not None and score > 0
-                    and len(skill.keywords) < len(best_skill.keywords)):
+            if score > best_score:
                 best_skill, best_score = skill, score
+            elif score == best_score and best_skill is not None and score > 0:
+                # 同分：priority 高者优先，其次专精
+                if skill.priority > best_skill.priority \
+                        or (skill.priority == best_skill.priority
+                            and len(skill.keywords) < len(best_skill.keywords)):
+                    best_skill = skill
         return best_skill
 
     # ==================== 技能包（整包强制注入） ====================
@@ -152,14 +160,21 @@ class SkillManager:
     # ==================== 技能操作 ====================
 
     def create_skill(self, name: str, description: str, content: str,
-                     triggers: Optional[List[str]] = None) -> Skill:
-        """新建技能"""
+                     triggers: Optional[List[str]] = None,
+                     version: str = "", priority: int = 0) -> Skill:
+        """新建技能（支持可选 version / priority frontmatter）"""
         safe_name = re.sub(r"[^\w\-一-鿿]", "_", name)
         skill_dir = os.path.join(self.skills_dir, safe_name)
         os.makedirs(skill_dir, exist_ok=True)
 
         triggers_line = ", ".join(triggers or [])
-        md = f"---\nname: {name}\ndescription: {description}\ntriggers: {triggers_line}\n---\n\n{content}\n"
+        meta_extra = ""
+        if version:
+            meta_extra += f"version: {version}\n"
+        if priority:
+            meta_extra += f"priority: {int(priority)}\n"
+        md = (f"---\nname: {name}\ndescription: {description}\n"
+              f"triggers: {triggers_line}\n{meta_extra}---\n\n{content}\n")
         with open(os.path.join(skill_dir, "SKILL.md"), "w", encoding="utf-8") as f:
             f.write(md)
 

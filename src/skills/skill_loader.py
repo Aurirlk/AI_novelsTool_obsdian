@@ -27,6 +27,8 @@ class Skill:
     triggers: List[str] = field(default_factory=list)   # 显式触发词（frontmatter/引号/斜杠）
     keywords: List[str] = field(default_factory=list)   # 领域关键词（弱触发）
     source: str = "local"  # local / builtin / github
+    version: str = ""       # 可选版本号（frontmatter: version）
+    priority: int = 0       # 可选优先级（frontmatter: priority），越高越优先，冲突时据此决断
 
     def matches(self, text: str) -> bool:
         lowered = text.lower()
@@ -157,6 +159,13 @@ def load_skill(skill_md_path: str, source: str = "local") -> Optional[Skill]:
     else:
         triggers = [name] + [t for t in triggers if t != name]
 
+    # 可选 frontmatter：版本号 / 优先级
+    version = str(meta.get("version", "")).strip()
+    try:
+        priority = int(float(str(meta.get("priority", 0))))
+    except (TypeError, ValueError):
+        priority = 0
+
     if not body.strip():
         return None
 
@@ -168,6 +177,8 @@ def load_skill(skill_md_path: str, source: str = "local") -> Optional[Skill]:
         triggers=triggers,
         keywords=keywords,
         source=source,
+        version=version,
+        priority=priority,
     )
 
 
