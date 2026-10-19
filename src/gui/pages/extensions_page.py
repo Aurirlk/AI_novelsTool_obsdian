@@ -12,6 +12,15 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 
+def _list_font():
+    """列表项字体：略加粗、显文字母，信息更易扫读"""
+    from PyQt6.QtGui import QFont
+    f = QFont()
+    f.setPointSize(11)
+    f.setWeight(QFont.Weight.Medium)
+    return f
+
+
 class ExtensionsPage(QWidget):
     """扩展中心：Skills / MCP / 提示词库"""
 
@@ -43,6 +52,11 @@ class ExtensionsPage(QWidget):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(16, 16, 16, 16)
+
+        # 顶部统计条
+        self.skill_stats_label = QLabel("")
+        self.skill_stats_label.setObjectName("chat_hint")
+        layout.addWidget(self.skill_stats_label)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -96,19 +110,27 @@ class ExtensionsPage(QWidget):
         sm = get_skill_manager()
         sm.refresh()
 
+        skills = sm.list_skills()
+        enabled = sum(1 for s in skills if sm.is_enabled(s.name))
+        self.skill_stats_label.setText(
+            f"共 {len(skills)} 个技能 · 已启用 {enabled} 个 · 勾选启用 / 取消勾选停用")
+
         self.skill_list.blockSignals(True)
         self.skill_list.clear()
-        for skill in sm.list_skills():
+        for skill in skills:
+            # 列表项富文本：名称 + 版本/优先级徽章 + 启用状态
             label = skill.name
             if skill.version:
-                label += f"  v{skill.version}"
+                label += f"    v{skill.version}"
             if skill.priority:
-                label += f"  ⭐P{skill.priority}"
+                label += f"    ★{skill.priority}"
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, skill)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if sm.is_enabled(skill.name) else Qt.CheckState.Unchecked)
-            item.setToolTip(skill.description)
+            desc = skill.description or ""
+            item.setToolTip(f"{skill.name}｜{desc}\n\n触发词：{'、'.join(skill.triggers[:6])}")
+            item.setData(Qt.ItemDataRole.FontRole, _list_font())
             self.skill_list.addItem(item)
         self.skill_list.blockSignals(False)
 
@@ -121,8 +143,10 @@ class ExtensionsPage(QWidget):
         meta = f"版本: {skill.version or '—'}"
         if skill.priority:
             meta += f"  ·  优先级: {skill.priority}"
-        self.skill_trigger_label.setText(f"触发词：{triggers}  ·  触发词优先：同名多技能同分时按优先级决断 ·  {meta}")
-        self.skill_detail.setPlainText(f"# {skill.name}\n\n{skill.description}\n\n---\n\n{skill.content[:4000]}")
+        self.skill_trigger_label.setText(f"触发词：{triggers}  ·  同名冲突按优先级决断  ·  {meta}")
+        desc = skill.description or ""
+        self.skill_detail.setMarkdown(
+            f"**{skill.name}**\n\n{desc}\n\n---\n\n{skill.content[:4000]}")
 
     def _on_skill_check_changed(self, item):
         skill = item.data(Qt.ItemDataRole.UserRole)
@@ -197,6 +221,11 @@ class ExtensionsPage(QWidget):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(16, 16, 16, 16)
 
+        # 顶部统计条
+        self.mcp_stats_label = QLabel("")
+        self.mcp_stats_label.setObjectName("chat_hint")
+        layout.addWidget(self.mcp_stats_label)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # 左：服务器列表
@@ -249,25 +278,40 @@ class ExtensionsPage(QWidget):
         from src.mcp import get_mcp_manager
         manager = get_mcp_manager()
         status = manager.server_status()
+        configs = manager.list_server_configs()
+        connected = sum(1 for n, s in status.items() if s.startswith("已连接"))
+        self.mcp_stats_label.setText(
+            f"共 {len(configs)} 个服务器 · 已连接 {connected} 个 · 选中后在右侧查看配置，点击「连接并获取工具」拉取工具列表")
 
+        self.mcp_list.blockSignals(True)
         self.mcp_list.clear()
-        for config in manager.list_server_configs():
-            state = status.get(config.name, "")
-            item = QListWidgetItem(f"{config.name}  [{state}]")
+        for config in configs:
+            state = status.get(config.name, "未连接")
+            item = QListWidgetItem(f"{config.name}    {state}")
             item.setData(Qt.ItemDataRole.UserRole, config)
+            item.setToolTip(f"{config.name}\n命令：{config.command}\n状态：{state}\n{config.description}")
+            item.setData(Qt.ItemDataRole.FontRole, _list_font())
+            # 状态描色：已连接绿、其余默认
+            if state.startswith("已连接"):
+                item.setForeground(Qt.GlobalColor.green)
+            elif state == "未连接":
+                item.setForeground(Qt.GlobalColor.gray)
             self.mcp_list.addItem(item)
+        self.mcp_list.blockSignals(False)
 
     def _on_mcp_selected(self, current, _previous):
         if current is None:
             return
         config = current.data(Qt.ItemDataRole.UserRole)
-        env_text = "\n".join(f"  {k}={v}" for k, v in config.env.items()) or "  (无)"
-        self.mcp_detail.setPlainText(
-            f"名称: {config.name}\n"
-            f"命令: {config.command} {' '.join(config.args)}\n"
-            f"环境变量:\n{env_text}\n"
-            f"状态: {'启用' if config.enabled else '禁用'}\n"
-            f"说明: {config.description}\n")
+        env_text = "\n".join(f"- `{k}={v}`" for k, v in config.env.items()) or "- （无）"
+        state = "启用" if config.enabled else "禁用"
+        self.mcp_detail.setMarkdown(
+            f"**{config.name}**\n\n"
+            f"- **命令**：`{config.command} {' '.join(config.args)}`\n"
+            f"- **状态**：{state}\n"
+            f"- **环境变量**：\n{env_text}\n\n"
+            f"**说明**：{config.description or '—'}\n\n"
+            f"> 点击左侧「连接并获取工具」可拉取该服务器暴露的工具清单。")
 
     def _add_mcp_server(self):
         name, ok = QInputDialog.getText(self, "添加MCP服务器", "服务器名称:")
@@ -338,12 +382,16 @@ class ExtensionsPage(QWidget):
             self.mcp_status_label.setText(f"{config.name} 已连接，发现 {count} 个工具，可在 AI 助手中启用 MCP 使用")
             self._refresh_mcp_servers()
             tools = get_mcp_manager().list_tools()
-            lines = [f"- {t['full_name']}: {t['description'][:60]}" for t in tools]
-            self.mcp_detail.setPlainText("可用工具：\n" + "\n".join(lines))
+            lines = "\n".join(f"- **{t['full_name']}** — {t['description'][:70] or '无描述'}" for t in tools)
+            self.mcp_detail.setMarkdown(f"**可用工具（{len(tools)}）**\n\n{lines or '- 该服务器未暴露工具'}")
 
         def on_failed(err):
             self.mcp_status_label.setText(f"{config.name} 连接失败")
-            self.mcp_detail.setPlainText(f"错误：{err}\n\n请检查：\n1. 命令是否存在（npx 需要 Node.js）\n2. 网络是否可用\n3. 配置参数是否正确")
+            self.mcp_detail.setMarkdown(
+                f"**连接失败：`{err}`**\n\n请检查：\n"
+                f"1. 命令是否存在（npx 需要 Node.js）\n"
+                f"2. 网络是否可用\n"
+                f"3. 配置参数是否正确")
             self._refresh_mcp_servers()
 
         from src.mcp import get_mcp_manager
